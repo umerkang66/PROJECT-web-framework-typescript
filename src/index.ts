@@ -1,11 +1,18 @@
-if (module.hot) {
-  module.hot.accept();
-}
-
+import { ROOT_URL } from './config';
+import { Collection } from './models/Collection';
 import { User, UserProps } from './models/User';
+import { UserList } from './views/UserList';
 
-const collection = User.buildUserCollection();
-collection.on('change', () => {
-  console.log(collection);
+const users = new Collection(ROOT_URL, (userProps: UserProps): User => {
+  return new User(userProps);
 });
-collection.fetch();
+
+users.on('change', () => {
+  const rootId = document.getElementById('root');
+  if (!rootId) return;
+
+  const userList = new UserList(rootId, users);
+  userList.render();
+});
+
+users.fetch();
