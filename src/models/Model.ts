@@ -1,18 +1,19 @@
-import { AxiosPromise, AxiosResponse, AxiosError } from 'axios';
+import { AxiosPromise, AxiosResponse } from 'axios';
+import { Callback } from './Eventing';
 
-interface ModelAttributes<T> {
-  set(value: T): void;
-  getAll(): T;
+export interface ModelAttributes<T> {
   get<K extends keyof T>(key: K): T[K];
+  set(update: T): void;
+  getAll(): T;
 }
 
-interface Sync<T> {
+export interface SyncInterface<T> {
   fetch(id: number): AxiosPromise;
   save(data: T): AxiosPromise;
 }
 
-interface Events {
-  on(eventName: string, callback: () => void): void;
+export interface Events {
+  on(eventName: string, callback: Callback): void;
   trigger(eventName: string): void;
 }
 
@@ -22,44 +23,51 @@ interface HasId {
 
 export class Model<T extends HasId> {
   constructor(
-    private modelAttributes: ModelAttributes<T>,
+    // Wire up the static dependencies of User class, we also don't need to create interface
+
+    // If we are assigning the properties using the modified syntax, not in the constructor function, these occur before the constructor function, SO we can write the shorten delegation method syntax
+    private attributes: ModelAttributes<T>,
     private events: Events,
-    private sync: Sync<T>
+    private sync: SyncInterface<T>
   ) {}
 
-  get get() {
-    return this.modelAttributes.get;
-  }
-  get on() {
-    return this.events.on;
-  }
-  get trigger() {
-    return this.events.trigger;
-  }
+  // Delegation methods, delegate behavior to related classes
+  // This only runs if properties of this class has been created by modifier syntax
+  public on = this.events.on;
+  public trigger = this.events.trigger;
+  public get = this.attributes.get;
 
-  set(update: T): void {
-    this.modelAttributes.set(update);
+  // Use these methods without getters, and also throw the change event
+  public set(update: T): void {
+    this.attributes.set(update);
+    // By doing this, all the callback that will be registered for change event, will be called, if there is nothing, no one will be called
     this.events.trigger('change');
   }
 
-  fetch(): void {
-    const id = this.modelAttributes.get('id');
-    if (!id) throw new Error('Cannot fetch without an id');
+  public fetch(): void {
+    // For get we can use both of these, this.get or this.attributes.get, because there is not extra functionality
+    const id = this.attributes.get('id');
 
-    this.sync.fetch(id).then((res: AxiosResponse): void => {
+    if (typeof id !== 'number') {
+      throw new Error('Cannot fetch without an id');
+    }
+
+    this.sync.fetch(id).then((res: AxiosResponse<T>): void => {
+      // When fetch the data update the attributes property, by using set method
+
+      // Should we use this.set() or this.attributes.set(), if we use the second method, we are going to skip out the change event
       this.set(res.data);
     });
   }
 
-  save(): void {
-    const data = this.modelAttributes.getAll();
+  public save(): void {
     this.sync
-      .save(data)
-      .then((): void => {
+      .save(this.attributes.getAll())
+      .then((res: AxiosResponse<T>): void => {
+        // We are not using the response
         this.trigger('save');
       })
-      .catch((err: AxiosError) => {
-        console.error(err);
+      .catch(() => {
         this.trigger('error');
       });
   }

@@ -1,18 +1,17 @@
-import { ROOT_URL } from './config';
+import { UserList } from './views/UserList';
 import { Collection } from './models/Collection';
 import { User, UserProps } from './models/User';
-import { UserList } from './views/UserList';
 
-const users = new Collection(ROOT_URL, (userProps: UserProps): User => {
-  return new User(userProps);
+const url = 'http://localhost:3000/users';
+// This will fetch the users collection
+const users = new Collection<User, UserProps>(url, json => {
+  return User.buildUser(json);
 });
 
 users.on('change', () => {
-  const rootId = document.getElementById('root');
-  if (!rootId) return;
-
-  const userList = new UserList(rootId, users);
-  userList.render();
+  // This will render the users collection
+  const root = document.getElementById('root');
+  if (root) new UserList(root, users).render();
 });
 
 users.fetch();

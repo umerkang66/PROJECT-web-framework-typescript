@@ -1,38 +1,36 @@
+import { Collection } from './Collection';
 import { Model } from './Model';
 import { Attributes } from './Attributes';
 import { Eventing } from './Eventing';
 import { ApiSync } from './ApiSync';
-import { ROOT_URL } from '../config';
-import { Collection } from './Collection';
 
 export interface UserProps {
-  userName?: string;
+  name?: string;
   age?: number;
+  // If user has a id, it means it is saved to the DB
   id?: number;
 }
 
+const rootUrl = 'http://localhost:3000/users';
+
 export class User extends Model<UserProps> {
-  constructor(data: UserProps) {
-    super(
-      new Attributes<UserProps>(data),
+  public static buildUser(attr: UserProps): User {
+    return new User(
+      new Attributes<UserProps>(attr),
       new Eventing(),
-      new ApiSync<UserProps>(ROOT_URL)
+      new ApiSync<UserProps>(rootUrl)
     );
   }
 
-  static buildUserCollection(): Collection<User, UserProps> {
+  public static buildUserCollection(): Collection<User, UserProps> {
     return new Collection<User, UserProps>(
-      ROOT_URL,
-      (userProps: UserProps) => new User(userProps)
+      rootUrl,
+      (json: UserProps): User => this.buildUser(json)
     );
   }
 
-  setRandomAge(): void {
-    const age = Math.trunc(Math.random() * 100) + 1;
+  public setRandomAge(): void {
+    const age = Math.round(Math.random() * 100);
     this.set({ age });
-  }
-
-  setNewUserName(newName: string): void {
-    this.set({ userName: newName });
   }
 }

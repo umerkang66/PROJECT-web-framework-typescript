@@ -1,17 +1,13 @@
-import { View } from './View';
 import { User, UserProps } from '../models/User';
+import { View } from './View';
 
 export class UserShow extends View<User, UserProps> {
-  constructor(parent: Element, model: User) {
-    super(parent, model);
-  }
-
   template(): string {
     return `
       <div>
         <h1>User Detail</h1>
-        <h4>User name: ${this.model.get('userName')}</h4>
-        <h4>User age: ${this.model.get('age')}</h4>
+        <div>User Name: ${this.model.get('name')}</div>
+        <div>User age: ${this.model.get('age')}</div>
       </div>
     `;
   }

@@ -1,89 +1,77 @@
 import { Model } from '../models/Model';
 
+// We are going to pass two generic arguments, first is T, that will be one of the model instances, and second is K, that will be Model Attributes property
 export abstract class View<T extends Model<K>, K> {
   regions: { [key: string]: Element } = {};
-  abstract template(): string;
 
-  constructor(public parent: Element, public model: T) {
-    this.bindModel();
+  // Instead of making eventsMap abstract method, make it a default method (and give it a default functionality), so it can be override by other extending classes, where needed, (where it doesn't need to be needed, this default one will occur)
+  // This is an optional method
+  eventsMap(): { [key: string]: () => void } {
+    return {};
   }
 
   regionsMap(): { [key: string]: string } {
     return {};
   }
 
-  eventsMap(): { [key: string]: (e?: Event) => void } {
-    return {};
+  onRender(): void {}
+
+  abstract template(): string;
+
+  constructor(public parent: Element, public model: T) {
+    this.bindModel();
   }
 
-  bindModel(): void {
-    const events = ['change', 'save'];
-
-    events.forEach((event: string): void => {
-      this.model.on(event, () => {
-        this.update();
-      });
+  private bindModel(): void {
+    // Once change event occur please, rerender
+    this.model.on('change', () => {
+      this.render();
     });
   }
 
-  bindEvents(fragment: DocumentFragment): void {
+  private bindEvents(fragment: DocumentFragment): void {
     const eventsMap = this.eventsMap();
-    Object.keys(eventsMap).forEach((eventKey: string): void => {
+
+    for (let eventKey in eventsMap) {
       const [eventName, selector] = eventKey.split(':');
 
       fragment.querySelectorAll(selector).forEach(element => {
-        element.addEventListener(eventName, eventsMap[eventKey]);
+        element.addEventListener(eventName, eventsMap[eventKey].bind(this));
       });
-    });
+    }
   }
 
-  mapRegions(fragment: DocumentFragment): void {
+  private clear(): void {
+    this.parent.innerHTML = '';
+  }
+
+  private mapRegions(fragment: DocumentFragment): void {
     const regionsMap = this.regionsMap();
-    Object.keys(regionsMap).forEach((key: string): void => {
+
+    for (let key in regionsMap) {
       const selector = regionsMap[key];
       const element = fragment.querySelector(selector);
-      if (!element) return;
 
-      this.regions[key] = element;
-    });
+      if (element) {
+        this.regions[key] = element;
+      }
+    }
   }
 
-  onRender(): void {}
+  public render(): void {
+    // Before rendering first, clear the previous element
+    this.clear();
 
-  render(): void {
-    this.parent.innerHTML = '';
     const templateElement = document.createElement('template');
     templateElement.innerHTML = this.template();
-    this.bindEvents(templateElement.content);
-    this.mapRegions(templateElement.content);
 
+    // Bind events
+    this.bindEvents(templateElement.content);
+    // Create an object of parent Elements where nested instances of classes (View Elements) will be nested
+    this.mapRegions(templateElement.content);
+    // Actually nesting stuff happens here
     this.onRender();
 
     this.parent.append(templateElement.content);
-  }
-
-  update(): void {
-    const newMarkup = this.template();
-
-    const newDOM = document.createRange().createContextualFragment(newMarkup);
-    const newElements = Array.from(newDOM.querySelectorAll('*'));
-    const curElements = Array.from(this.parent.querySelectorAll('*'));
-
-    newElements.forEach((newEl: Element, i: number) => {
-      const curEl = curElements[i];
-      // Updates changed TEXT
-      if (
-        !newEl.isEqualNode(curEl) &&
-        newEl.firstChild?.nodeValue &&
-        newEl.firstChild?.nodeValue.trim() !== ''
-      ) {
-        curEl.textContent = newEl.textContent;
-      }
-      // Updates changed ATTRIBUES
-      if (!newEl.isEqualNode(curEl))
-        Array.from(newEl.attributes).forEach((attr: Attr) =>
-          curEl.setAttribute(attr.name, attr.value)
-        );
-    });
   }
 }
